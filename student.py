@@ -50,8 +50,27 @@ def is_valid_move(new_position, body, sight, traverse):
         case _:
             return False
 
-async def agent_loop(server_address="localhost:8000", agent_name="student"):
+def get_direction_to_food(current_position, foodLoc, body):
+    x1, y1 = current_position
+    x2, y2 = foodLoc
 
+    match (x1, y1, x2, y2):
+        case (x1, y1, x2, y2) if (x1, y1 - 1) == (x2, y2) and (x1, y1 - 1) not in body:
+            return "w"
+        case (x1, y1, x2, y2) if (x1, y1 + 1) == (x2, y2) and (x1, y1 + 1) not in body:
+            return "s"
+        case (x1, y1, x2, y2) if (x1 - 1, y1) == (x2, y2) and (x1 - 1, y1) not in body:
+            return "a"
+        case (x1, y1, x2, y2) if (x1 + 1, y1) == (x2, y2) and (x1 + 1, y1) not in body:
+            return "d"
+        case _:
+            return None
+
+def is_move_toward_body(new_position, body):
+    return new_position in body
+
+
+async def agent_loop(server_address="localhost:8000", agent_name="student"):
     global failed_eating_attempts, food_pass_count, previous_food_position
 
     async with websockets.connect(f"ws://{server_address}/player") as websocket:
@@ -68,8 +87,6 @@ async def agent_loop(server_address="localhost:8000", agent_name="student"):
                 body = state.get("body", [])
                 sight = state.get("sight", {})
                 traverse = state.get("traverse", False)
-                #print(state)
-                #print(body)
 
                 if not food:
                     continue
@@ -85,27 +102,32 @@ async def agent_loop(server_address="localhost:8000", agent_name="student"):
                     "d": (current_position[0] + 1, current_position[1]) 
                 }
 
-                if previous_food_position == foodLoc:
+                direction_to_food = get_direction_to_food(current_position, foodLoc, body)
+                if direction_to_food:
+                    next_position = possible_moves[direction_to_food]
+                    if not is_move_toward_body(next_position, body):
+                        print("FORCE")
+                        await websocket.send(json.dumps({"cmd": "key", "key": direction_to_food}))
+                        await asyncio.sleep(0.1)
+                        continue
+                    else:
+                        print("?????????????????????")
+
+                if previous_food_position == foodLoc and foodLoc not in body:
                     food_pass_count += 1
                 else:
                     food_pass_count = 0
                 previous_food_position = foodLoc
-                print(food_pass_count)
+                #print(food_pass_count)
 
                 if food_pass_count >= PASS_LIMIT:
                     print(f"################# {traverse} #################")
                     for direction, new_position in possible_moves.items():
-                        if new_position == foodLoc:
-                            print("FUNCIONA CRLHHHHHHH")
+                        if new_position == foodLoc and dodge(new_position, body):
+                            print("Forcing snake to eat food")
                             await websocket.send(json.dumps({"cmd": "key", "key": direction}))
                             food_pass_count = 0
                             return
-
-                for direction, new_position in possible_moves.items():
-                    if new_position == foodLoc and is_valid_move(new_position, body, sight, traverse):
-                        await websocket.send(json.dumps({"cmd": "key", "key": direction}))
-                        failed_eating_attempts = 0
-                        return
 
                 valid_moves = []
                 for direction, new_position in possible_moves.items():
@@ -117,7 +139,7 @@ async def agent_loop(server_address="localhost:8000", agent_name="student"):
                             directions_costs[direction] += forbidden
                         if not traverse and not safe(new_position, sight):
                             directions_costs[direction] += terrible
-                        if is_move_backward(previous_position, new_position):
+                        if is_move_backward(previous_position, new_position) or is_move_toward_body(new_position, body):
                             directions_costs[direction] += forbidden
 
                     if is_valid_move(new_position, body, sight, traverse):
@@ -130,7 +152,6 @@ async def agent_loop(server_address="localhost:8000", agent_name="student"):
                     await websocket.send(json.dumps({"cmd": "key", "key": key}))
                 else:
                     failed_eating_attempts += 1
-                    print(failed_eating_attempts)
                     print("-------------------------")
 
             except websockets.exceptions.ConnectionClosedOK:
@@ -139,7 +160,7 @@ async def agent_loop(server_address="localhost:8000", agent_name="student"):
                 traceback.print_exc()
 
 
-# DO NOT CHANGE THE LINES BELLOW
+# DO NOT CHANGE THE LINES BELOW
 # You can change the default values using the command line, example:
 # $ NAME='arrumador' python3 client.py
 loop = asyncio.get_event_loop()
