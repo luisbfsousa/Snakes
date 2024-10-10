@@ -51,7 +51,7 @@ def is_valid_move(new_position, body, sight, traverse):
             return False
 
 async def agent_loop(server_address="localhost:8000", agent_name="student"):
-    
+
     global failed_eating_attempts, food_pass_count, previous_food_position
 
     async with websockets.connect(f"ws://{server_address}/player") as websocket:
@@ -145,5 +145,5 @@ async def agent_loop(server_address="localhost:8000", agent_name="student"):
 loop = asyncio.get_event_loop()
 SERVER = os.environ.get("SERVER", "localhost")
 PORT = os.environ.get("PORT", "8000")
-NAME = os.environ.get("NAME", getpass.getuser())
+NAME = os.environ.get("NAME", "LUISBFSOUSA")
 loop.run_until_complete(agent_loop(f"{SERVER}:{PORT}", NAME))
