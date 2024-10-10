@@ -6,14 +6,14 @@ import traceback
 import websockets
 
 WIDTH, HEIGHT = 48, 25  
-EATING_ATTEMPT_LIMIT = 3
-PASS_LIMIT = 3 
+FAILEAT = 3
+PASS = 3 
 
 forbidden, terrible, worse, bad, possible, good, important = 1, 2, 3, 5, 8, 13, 21
 
-failed_eating_attempts = 0
-food_pass_count = 0
-previous_food_position = None
+failEat = 0
+PassCount = 0
+prevFoodLoc = None
 
 def safe(position, sight):
     x, y = position
@@ -22,10 +22,10 @@ def safe(position, sight):
 def dodge(position, body):
     return position not in body
 
-def is_move_backward(previous_position, new_position):
-    return new_position == previous_position
+def backwards(previous, newPos):
+    return newPos == previous
 
-def calculate_wrapping_distance(pos1, pos2, traverse):
+def calculate_distance(pos1, pos2, traverse):
     x1, y1 = pos1
     x2, y2 = pos2
     if traverse:
@@ -36,22 +36,22 @@ def calculate_wrapping_distance(pos1, pos2, traverse):
         dy = abs(y1 - y2)
     return dx + dy
 
-def is_valid_move(new_position, body, sight, traverse):
-    x, y = new_position
+def valid_move(newPos, body, sight, traverse):
+    x, y = newPos
     if not traverse:
-        if not dodge(new_position, body):
+        if not dodge(newPos, body):
             return False
         if x < 0 or x >= WIDTH or y < 0 or y >= HEIGHT:
             return False
     
-    match new_position:
-        case (x, y) if dodge(new_position, body) and (traverse or safe(new_position, sight)):
+    match newPos:
+        case (x, y) if dodge(newPos, body) and (traverse or safe(newPos, sight)):
             return True
         case _:
             return False
 
-def get_direction_to_food(current_position, foodLoc, body):
-    x1, y1 = current_position
+def path_food(current, foodLoc, body):
+    x1, y1 = current
     x2, y2 = foodLoc
 
     match (x1, y1, x2, y2):
@@ -66,12 +66,12 @@ def get_direction_to_food(current_position, foodLoc, body):
         case _:
             return None
 
-def is_move_toward_body(new_position, body):
-    return new_position in body
+def is_move_toward_body(newPos, body):
+    return newPos in body
 
 
 async def agent_loop(server_address="localhost:8000", agent_name="student"):
-    global failed_eating_attempts, food_pass_count, previous_food_position
+    global failEat, PassCount, prevFoodLoc
 
     async with websockets.connect(f"ws://{server_address}/player") as websocket:
         await websocket.send(json.dumps({"cmd": "join", "name": agent_name}))
@@ -80,8 +80,8 @@ async def agent_loop(server_address="localhost:8000", agent_name="student"):
             try:
                 state = json.loads(await websocket.recv())
 
-                directions_priorities = {"w": [possible, 0], "d": [possible, 0], "s": [possible, 0], "a": [possible, 0]}
-                directions_costs = {"w": 0, "d": 0, "s": 0, "a": 0}
+                priorities = {"w": [possible, 0], "d": [possible, 0], "s": [possible, 0], "a": [possible, 0]}
+                cost = {"w": 0, "d": 0, "s": 0, "a": 0}
 
                 food = state.get("food", [])
                 body = state.get("body", [])
@@ -92,67 +92,67 @@ async def agent_loop(server_address="localhost:8000", agent_name="student"):
                     continue
 
                 foodLoc = food[0][:2]
-                current_position = body[0]
-                previous_position = body[1] if len(body) > 1 else None
+                current = body[0]
+                previous = body[1] if len(body) > 1 else None
 
-                possible_moves = {
-                    "w": (current_position[0], current_position[1] - 1), 
-                    "s": (current_position[0], current_position[1] + 1),
-                    "a": (current_position[0] - 1, current_position[1]), 
-                    "d": (current_position[0] + 1, current_position[1]) 
+                PossMove = {
+                    "w": (current[0], current[1] - 1), 
+                    "s": (current[0], current[1] + 1),
+                    "a": (current[0] - 1, current[1]), 
+                    "d": (current[0] + 1, current[1]) 
                 }
 
-                direction_to_food = get_direction_to_food(current_position, foodLoc, body)
-                if direction_to_food:
-                    next_position = possible_moves[direction_to_food]
-                    if not is_move_toward_body(next_position, body):
+                toFood = path_food(current, foodLoc, body)
+                if toFood:
+                    nextMove = PossMove[toFood]
+                    if not is_move_toward_body(nextMove, body):
                         print("FORCE")
-                        await websocket.send(json.dumps({"cmd": "key", "key": direction_to_food}))
+                        await websocket.send(json.dumps({"cmd": "key", "key": toFood}))
                         await asyncio.sleep(0.1)
                         continue
                     else:
                         print("?????????????????????")
                         continue
 
-                if previous_food_position == foodLoc and foodLoc not in body:
-                    food_pass_count += 1
+                if prevFoodLoc == foodLoc and foodLoc not in body:
+                    PassCount += 1
                 else:
-                    food_pass_count = 0
-                previous_food_position = foodLoc
-                #print(food_pass_count)
+                    PassCount = 0
+                prevFoodLoc = foodLoc
+                #print(PassCount)
 
-                if food_pass_count >= PASS_LIMIT:
+                if PassCount >= PASS:
                     print(f"################# {traverse} #################")
-                    for direction, new_position in possible_moves.items():
-                        if new_position == foodLoc and dodge(new_position, body):
+                    for direction, newPos in PossMove.items():
+                        if newPos == foodLoc and dodge(newPos, body):
                             print("FORCEEEEE")
                             await websocket.send(json.dumps({"cmd": "key", "key": direction}))
-                            food_pass_count = 0
+                            PassCount = 0
                             return
 
-                valid_moves = []
-                for direction, new_position in possible_moves.items():
-                    distance_to_food = calculate_wrapping_distance(new_position, foodLoc, traverse)
-                    directions_priorities[direction][0] = important - distance_to_food
+                valid = []
+                for direction, newPos in PossMove.items():
+                    distanceFood = calculate_distance(newPos, foodLoc, traverse)
+                    priorities[direction][0] = important - distanceFood
 
-                    if new_position != foodLoc:
-                        if not dodge(new_position, body):
-                            directions_costs[direction] += forbidden
-                        if not traverse and not safe(new_position, sight):
-                            directions_costs[direction] += terrible
-                        if is_move_backward(previous_position, new_position) or is_move_toward_body(new_position, body):
-                            directions_costs[direction] += forbidden
+                    if newPos != foodLoc:
+                        if not dodge(newPos, body):
+                            cost[direction] += forbidden
+                        if not traverse and not safe(newPos, sight):
+                            cost[direction] += terrible
+                        if backwards(previous, newPos) or is_move_toward_body(newPos, body):
+                            cost[direction] += forbidden
 
-                    if is_valid_move(new_position, body, sight, traverse):
-                        valid_moves.append(direction)
+                    if valid_move(newPos, body, sight, traverse):
+                        valid.append(direction)
 
-                directions_scores = {d: directions_priorities[d][0] - directions_costs[d] for d in valid_moves}
+                dirScore = {d: priorities[d][0] - cost[d] for d in valid}
 
-                if valid_moves:
-                    key = max(valid_moves, key=directions_scores.get)
+                if valid:
+                    key = max(valid, key=dirScore.get)
                     await websocket.send(json.dumps({"cmd": "key", "key": key}))
                 else:
-                    failed_eating_attempts += 1
+                    failEat += 1
                     print("-------------------------")
 
             except websockets.exceptions.ConnectionClosedOK:
