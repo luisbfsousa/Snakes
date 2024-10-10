@@ -66,7 +66,7 @@ def path_food(current, foodLoc, body):
         case _:
             return None
 
-def is_move_toward_body(newPos, body):
+def to_body(newPos, body):
     return newPos in body
 
 
@@ -105,7 +105,7 @@ async def agent_loop(server_address="localhost:8000", agent_name="student"):
                 toFood = path_food(current, foodLoc, body)
                 if toFood:
                     nextMove = PossMove[toFood]
-                    if not is_move_toward_body(nextMove, body):
+                    if not to_body(nextMove, body):
                         print("FORCE")
                         await websocket.send(json.dumps({"cmd": "key", "key": toFood}))
                         await asyncio.sleep(0.1)
@@ -140,7 +140,7 @@ async def agent_loop(server_address="localhost:8000", agent_name="student"):
                             cost[direction] += forbidden
                         if not traverse and not safe(newPos, sight):
                             cost[direction] += terrible
-                        if backwards(previous, newPos) or is_move_toward_body(newPos, body):
+                        if backwards(previous, newPos) or to_body(newPos, body):
                             cost[direction] += forbidden
 
                     if valid_move(newPos, body, sight, traverse):
