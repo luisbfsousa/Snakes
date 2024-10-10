@@ -112,6 +112,7 @@ async def agent_loop(server_address="localhost:8000", agent_name="student"):
                         continue
                     else:
                         print("?????????????????????")
+                        continue
 
                 if previous_food_position == foodLoc and foodLoc not in body:
                     food_pass_count += 1
@@ -124,7 +125,7 @@ async def agent_loop(server_address="localhost:8000", agent_name="student"):
                     print(f"################# {traverse} #################")
                     for direction, new_position in possible_moves.items():
                         if new_position == foodLoc and dodge(new_position, body):
-                            print("Forcing snake to eat food")
+                            print("FORCEEEEE")
                             await websocket.send(json.dumps({"cmd": "key", "key": direction}))
                             food_pass_count = 0
                             return
