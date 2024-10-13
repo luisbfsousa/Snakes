@@ -7,7 +7,7 @@ Doing for fun in my free time.
 
 To change the game speed go to game.py > GAME_SPEED = x (in good pcs 200 is still enough to run everything as the way it should)
 
-Still in initial phase of develpment, still needs much more work to constantly get a lenght of 100.
+Still in initial phase of development, still needs much more work to constantly get a lenght of 100.
 
 An algorith like A* should help a lot in this specific project (I'm just trying something xD).
 
