@@ -9,7 +9,7 @@ To change the game speed go to game.py > GAME_SPEED = x (in good pcs 200 is stil
 
 Still in initial phase of develpment, still needs much more work to constantly get a lenght of 100.
 
-An algorith should help a lot in this specific project (I'm just trying something xD).
+An algorith like A* should help a lot in this specific project (I'm just trying something xD).
 
 Prioritize speed of choice on the student.py (where you develop the AI), match cases helps in specific scenarios in the code such as the fastest way to forbid some plays, the rest doesnt need match case for now.
 
