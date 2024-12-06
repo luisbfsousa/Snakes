@@ -3,6 +3,8 @@ AI 2024/2025 project, trying to match the global ranking from last year when I w
 
 Doing for fun in my free time.
 
+Old version of the game, new version made this code not work due to new snake and map variables. Different approach so it was fun while it lasted (3 days of work before the public announcement sp that everyone would start with a good head start)  
+
 # Notes: 
 
 To change the game speed go to game.py > GAME_SPEED = x (in good pcs 200 is still enough to run everything as the way it should)
